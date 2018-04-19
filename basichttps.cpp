@@ -27,10 +27,10 @@
 
 #include "root_certificates.hpp"
 
-SSLConnection::SSLConnection(std::string host):stream{ios, get_ssl_context()}{
+SSLConnection::SSLConnection(std::string host, int port):stream{ios, get_ssl_context()}{
 	// Look up the domain name
 	tcp::resolver resolver{ios};
-	auto const lookup = resolver.resolve({host, "443"});
+	auto const lookup = resolver.resolve({host, std::to_string(port)});
 
 	// Make the connection on the IP address we get from a lookup
 	boost::asio::connect(stream.next_layer(), lookup);
@@ -74,10 +74,10 @@ ssl::context &SSLConnection::get_ssl_context()
 	return ctx;
 }
 
-Connection::Connection(std::string host):socket{ios}
+Connection::Connection(std::string host, int port):socket{ios}
 {
 	tcp::resolver resolver{ios};
-	auto const lookup = resolver.resolve({host, "80"});
+	auto const lookup = resolver.resolve({host, std::to_string(port)});
 
 	// Make the connection on the IP address we get from a lookup
 	boost::asio::connect(socket, lookup);
@@ -109,20 +109,21 @@ http::response<http::dynamic_body> Connection::send_request(http::request<http::
 
 
 
-Session::Session(std::string host,bool use_ssl, std::string user,const char *passw):m_host(host),m_use_ssl(use_ssl){
+Session::Session(std::string host, int port, bool use_ssl, std::string user,const char *passw):m_host(host),m_use_ssl(use_ssl),m_port(port){
 
 	if(!passw)
 		passw=getpass("Password:");
 	
 	m_auth = std::string("Basic ")+boost::beast::detail::base64_encode(user+":"+passw);
-
-	m_token = get_token();
 }
 
 ConnectionBase & Session::get_connection()
 {
-	if(!m_connection)
-		m_connection=std::unique_ptr<ConnectionBase>(new SSLConnection(m_host));
+	if(!m_connection){
+		m_connection=m_use_ssl?
+			std::unique_ptr<ConnectionBase>(new SSLConnection(m_host,m_port)):
+			std::unique_ptr<ConnectionBase>(new Connection(m_host,m_port));
+	}
 	
 	assert(m_connection);
 	return *m_connection;
@@ -180,6 +181,47 @@ std::string Session::get_token(){
 	// Write the message to standard out
 	std::cerr << "Failed to get token. response was:" << std::endl << res << std::endl;
 	return "";
+}
+
+
+std::string Session::get_string(std::string target)
+{
+	const auto res=request(target);
+	switch(res.result())
+	{
+		case boost::beast::http::status::ok:
+			return boost::beast::buffers_to_string(res.body().data());
+			break;
+		case boost::beast::http::status::not_found:
+			std::cerr << target << " was not found";
+			break;
+		default:
+			std::cerr 
+				<< "result for request on " << target << " was not ok, but:" << std::endl 
+				<< res << std::endl;
+			break;
+	}
+	return "";
+}
+bool Session::put_string(std::string target, std::string value)
+{
+	const auto res=put_request(target,value);
+	switch(res.result())
+	{
+		case boost::beast::http::status::ok:
+		case boost::beast::http::status::no_content:
+			return true;
+			break;
+		case boost::beast::http::status::not_found:
+			std::cerr << target << " was not found";
+			break;
+		default:
+			std::cerr 
+				<< "result for request on " << target << " was not ok, but:" << std::endl 
+				<< res << std::endl;
+			break;
+	}
+	return false;
 }
 
 boost::asio::io_service ConnectionBase::ios;

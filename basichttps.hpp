@@ -46,7 +46,7 @@ class SSLConnection:public ConnectionBase {
 	ssl::stream<tcp::socket> stream;
 	static ssl::context &get_ssl_context();
 public:
-	SSLConnection(std::string host);
+	SSLConnection(std::string host, int port);
 	~SSLConnection();
 	virtual http::response<http::dynamic_body> send_request(http::request<http::string_body> req)override;
 };
@@ -54,24 +54,29 @@ public:
 class Connection:public ConnectionBase {
 	tcp::socket socket;
 public:
-	Connection(std::string host);
+	Connection(std::string host, int port);
 	~Connection();
 	virtual http::response<http::dynamic_body> send_request(http::request<http::string_body> req)override;
 };
 
 class Session{
-	std::string m_auth, m_host, m_token;
+	std::string m_auth, m_host;
 	std::unique_ptr<ConnectionBase> m_connection;
 	bool m_use_ssl;
+	int m_port;
 	
-	std::string get_token();
 protected:
-	   ConnectionBase &get_connection();
+	ConnectionBase &get_connection();
+	std::string get_token();
+	std::string m_token;
 public:
-	Session(std::string host,bool use_ssl,std::string user,const char *passw=nullptr);
+	Session(std::string host,int port,bool use_ssl,std::string user,const char *passw=nullptr);
 	http::request<http::string_body> make_request(std::string target);
 	http::response<http::dynamic_body> request(std::string target);
 	http::response<http::dynamic_body> put_request(std::string target, const std::string &payload);
+	
+	std::string get_string(std::string name);
+	bool put_string(std::string name,std::string value);
 };
 
 #endif // BASICHTTPS_H
