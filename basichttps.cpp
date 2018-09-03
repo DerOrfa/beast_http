@@ -129,9 +129,9 @@ ConnectionBase & Session::get_connection()
 	return *m_connection;
 }
 
-http::request<http::string_body> Session::make_request(std::string target)
+http::request<http::string_body> Session::make_request(std::string target,http::verb method)
 {
-	http::request<http::string_body> req{http::verb::get, target, 11};
+	http::request<http::string_body> req{method, target, 11};
 	req.set(http::field::host, m_host);
 	req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 	if(!m_auth.empty())
@@ -141,9 +141,8 @@ http::request<http::string_body> Session::make_request(std::string target)
 	return req;
 }
 
-http::response<http::dynamic_body> Session::request(std::string target)
+http::response<http::dynamic_body> Session::send_request(http::request<http::string_body> req)
 {
-	http::request<http::string_body> req=make_request(target);
 	auto res=get_connection().send_request(req);
 
 	if(res[http::field::connection].to_string()=="close")//the server asked us to close the connection
@@ -151,19 +150,19 @@ http::response<http::dynamic_body> Session::request(std::string target)
 	return res;
 }
 
-http::response<http::dynamic_body> Session::put_request(std::string target, const std::string &payload)
+http::response<http::dynamic_body> Session::request(std::string target,http::verb method)
 {
-	http::request<http::string_body> req=make_request(target);
-	req.method(http::verb::post);
-	req.set(http::field::content_type, "application/octet-stream");
+	return send_request(make_request(target,method));
+}
+
+http::response<http::dynamic_body> Session::put_request(std::string target, const std::string &payload, std::string content_type)
+{
+	http::request<http::string_body> req=make_request(target,http::verb::put);
+	req.set(http::field::content_type, content_type);
 	req.content_length(payload.size());
 	req.body()=payload;
 	
-	auto res=get_connection().send_request(req);
-
-	if(res[http::field::connection].to_string()=="close")//the server asked us to close the connection
-		m_connection.reset();
-	return res;
+	return send_request(req);
 }
 
 std::string Session::get_token(){
@@ -184,28 +183,23 @@ std::string Session::get_token(){
 }
 
 
-std::string Session::get_string(std::string target)
+std::string Session::get_string(std::string target,http::verb method)
 {
-	const auto res=request(target);
-	switch(res.result())
-	{
-		case boost::beast::http::status::ok:
-			return boost::beast::buffers_to_string(res.body().data());
-			break;
-		case boost::beast::http::status::not_found:
-			std::cerr << target << " was not found";
-			break;
-		default:
-			std::cerr 
-				<< "result for request on " << target << " was not ok, but:" << std::endl 
-				<< res << std::endl;
-			break;
+	const auto res=request(target,method);
+	if(res.result_int()<300){
+		return boost::beast::buffers_to_string(res.body().data());
+	} else if(res.result()==boost::beast::http::status::not_found){
+		std::cerr << target << " was not found";
+	} else {
+		std::cerr 
+			<< "result for request on " << target << " was not ok, but:" << std::endl 
+			<< res << std::endl;
 	}
 	return "";
 }
-bool Session::put_string(std::string target, std::string value)
+bool Session::put_string(std::string target, std::string value, std::string content_type)
 {
-	const auto res=put_request(target,value);
+	const auto res=put_request(target,value,content_type);
 	switch(res.result())
 	{
 		case boost::beast::http::status::ok:

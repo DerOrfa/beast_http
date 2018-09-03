@@ -23,14 +23,16 @@
 
 #include "basichttps.hpp"
 #include <boost/property_tree/ptree_fwd.hpp>
+#include <map>
 
 class ConfluenceWEBDav:public Session
 {
 	std::string m_root;
 public:
 	ConfluenceWEBDav(std::string host,std::string user,const char *passw=nullptr, std::string root="/plugins/servlet/confluence/default/");
-	boost::property_tree::ptree get_xml(std::string name);
+	boost::property_tree::ptree get_xml(std::string name,http::verb method=http::verb::get);
 	bool put_xml(std::string name, const boost::property_tree::ptree &tree);
+	std::map<std::string,std::string> ls(std::string name);
 };
 
 #endif // CONFLUENCEWEBDAV_H

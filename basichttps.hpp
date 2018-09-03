@@ -67,16 +67,17 @@ class Session{
 	
 protected:
 	ConnectionBase &get_connection();
+	http::response<http::dynamic_body> send_request(http::request<http::string_body> req);
 	std::string get_token();
 	std::string m_token;
 public:
 	Session(std::string host,int port,bool use_ssl,std::string user,const char *passw=nullptr);
-	http::request<http::string_body> make_request(std::string target);
-	http::response<http::dynamic_body> request(std::string target);
-	http::response<http::dynamic_body> put_request(std::string target, const std::string &payload);
+	http::request<http::string_body> make_request(std::string target,http::verb method=http::verb::get);
+	http::response<http::dynamic_body> request(std::string target,http::verb method=http::verb::get);
+	http::response<http::dynamic_body> put_request(std::string target, const std::string &payload, std::string content_type);
 	
-	std::string get_string(std::string name);
-	bool put_string(std::string name,std::string value);
+	std::string get_string(std::string name,http::verb method=http::verb::get);
+	bool put_string(std::string name,std::string value, std::string content_type);
 };
 
 #endif // BASICHTTPS_H

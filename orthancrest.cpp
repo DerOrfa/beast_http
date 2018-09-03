@@ -37,7 +37,7 @@ bool OrthancRest::put_json(std::string target, const boost::property_tree::ptree
 {
 	std::ostringstream o;
 	boost::property_tree::write_json(o,payload);
-	return put_string(target,o.str());
+	return put_string(target,o.str(),"application/json");
 }
 std::list<std::string> OrthancRest::get_studies(){
 	const ptree studies=get_json("/studies");

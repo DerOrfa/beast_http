@@ -23,15 +23,16 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/beast.hpp>
 #include <sstream>
+#include <boost/property_tree/xml_parser.hpp>
 
 ConfluenceWEBDav::ConfluenceWEBDav(std::string host, std::string user, const char* passw, std::string root):Session(host,443,true,user,passw),m_root(root)
 {
 	m_token = get_token();
 }
 
-boost::property_tree::ptree ConfluenceWEBDav::get_xml(std::string target){
+boost::property_tree::ptree ConfluenceWEBDav::get_xml(std::string target,http::verb method){
 	
-	std::istringstream src(get_string(m_root+"/"+target));
+	std::istringstream src(get_string(m_root+"/"+target,method));
 	boost::property_tree::ptree ret;
 	boost::property_tree::read_xml(src,ret);
 	return ret;
@@ -42,5 +43,16 @@ bool ConfluenceWEBDav::put_xml(std::string target, const boost::property_tree::p
 	std::ostringstream o;
 	write_xml(o,tree);
 
-	return put_string(m_root+"/"+target,o.str());
+	return put_string(m_root+"/"+target,o.str(),"application/octet-stream");
+}
+
+std::map<std::string,std::string> ConfluenceWEBDav::ls(std::string name)
+{
+	auto prop=get_xml(name);
+	std::map<std::string,std::string> ret;
+	
+	for(auto p:prop.get_child("html.body.ul")){
+		ret[p.second.get<std::string>("a")]=p.second.get<std::string>("a.<xmlattr>.href");
+	}
+	return ret;
 }
