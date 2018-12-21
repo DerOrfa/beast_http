@@ -192,7 +192,7 @@ std::string Session::get_string(std::string target,http::verb method)
 		std::cerr << target << " was not found";
 	} else {
 		std::cerr 
-			<< "result for request on " << target << " was not ok, but:" << std::endl 
+			<< "result for request on " << target << " was not \"OK\", but:" << std::endl 
 			<< res << std::endl;
 	}
 	return "";
