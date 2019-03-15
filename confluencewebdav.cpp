@@ -31,8 +31,8 @@ ConfluenceWEBDav::ConfluenceWEBDav(std::string host, std::string user, const cha
 }
 
 boost::property_tree::ptree ConfluenceWEBDav::get_xml(std::string target,http::verb method){
-	
-	std::istringstream src(get_string(m_root+"/"+target,method));
+	std::string page=get_string(m_root+"/"+target,method);
+	std::istringstream src(page);
 	boost::property_tree::ptree ret;
 	boost::property_tree::read_xml(src,ret);
 	return ret;
@@ -42,6 +42,9 @@ bool ConfluenceWEBDav::put_xml(std::string target, const boost::property_tree::p
 {
 	std::ostringstream o;
 	write_xml(o,tree);
+	
+	std::ofstream dump("/tmp/dump");
+	write_xml(dump,tree,boost::property_tree::xml_writer_settings<std::string>(' ',4));
 
 	return put_string(m_root+"/"+target,o.str(),"application/octet-stream");
 }

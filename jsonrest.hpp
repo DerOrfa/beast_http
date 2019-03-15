@@ -16,20 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ORTHANCREST_H
-#define ORTHANCREST_H
+#ifndef JSONREST_H
+#define JSONREST_H
 
 #include "basichttps.hpp"
 #include <boost/property_tree/ptree_fwd.hpp>
 #include <list>
 
-class OrthancRest : public Session
+class JsonRest : public Session
 {
 public:
-    OrthancRest(std::string host,int port,bool use_ssl,std::string user,const char *passw=nullptr);
+    JsonRest (std::string host,int port,bool use_ssl,std::string user="",const char *passw=nullptr);
 	boost::property_tree::ptree get_json(std::string target);
 	bool put_json(std::string target, const boost::property_tree::ptree &payload);
+};
+
+
+class OrthancRest : public JsonRest
+{
+public:
+    OrthancRest (std::string host,int port,bool use_ssl,std::string user="",const char *passw=nullptr);
 	std::list<std::string> get_studies();
 };
 
-#endif // ORTHANCREST_H
+#endif // JSONREST_H

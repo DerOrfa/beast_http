@@ -10,7 +10,7 @@ find_package(Boost COMPONENTS system filesystem)
 
 find_path(BEAST_INC "boost/beast/core.hpp")
 
-add_library(beast_http basichttps.cpp confluencewebdav.cpp orthancrest.cpp utils.cpp)
+add_library(beast_http basichttps.cpp confluencewebdav.cpp jsonrest.cpp utils.cpp)
 
 target_include_directories(beast_http PUBLIC 
 	${BEAST_INC}

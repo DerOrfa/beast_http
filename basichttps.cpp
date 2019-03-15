@@ -110,11 +110,12 @@ http::response<http::dynamic_body> Connection::send_request(http::request<http::
 
 
 Session::Session(std::string host, int port, bool use_ssl, std::string user,const char *passw):m_host(host),m_use_ssl(use_ssl),m_port(port){
-
-	if(!passw)
-		passw=getpass("Password:");
+	if(!user.empty()){
+		if(!passw)
+			passw=getpass("Password:");
 	
-	m_auth = std::string("Basic ")+boost::beast::detail::base64_encode(user+":"+passw);
+		m_auth = std::string("Basic ")+boost::beast::detail::base64_encode(user+":"+passw);
+	}
 }
 
 ConnectionBase & Session::get_connection()
@@ -131,7 +132,7 @@ ConnectionBase & Session::get_connection()
 
 http::request<http::string_body> Session::make_request(std::string target,http::verb method)
 {
-	http::request<http::string_body> req{method, target, 11};
+	http::request<http::string_body> req{method, uri_encode(target), 11};
 	req.set(http::field::host, m_host);
 	req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 	if(!m_auth.empty())
@@ -155,9 +156,9 @@ http::response<http::dynamic_body> Session::request(std::string target,http::ver
 	return send_request(make_request(target,method));
 }
 
-http::response<http::dynamic_body> Session::put_request(std::string target, const std::string &payload, std::string content_type)
+http::response<http::dynamic_body> Session::request(std::string target, const std::string &payload, std::string content_type, const http::verb &method)
 {
-	http::request<http::string_body> req=make_request(target,http::verb::put);
+	http::request<http::string_body> req=make_request(uri_encode(target),method);
 	req.set(http::field::content_type, content_type);
 	req.content_length(payload.size());
 	req.body()=payload;
@@ -165,20 +166,21 @@ http::response<http::dynamic_body> Session::put_request(std::string target, cons
 	return send_request(req);
 }
 
+
 std::string Session::get_token(){
 	//just ask for anything, answer will include the token
 	auto res= request("/");
 
-	if(res.result()==boost::beast::http::status::unauthorized && res.find(http::field::set_cookie)!=res.end()){
+	if(res.find(http::field::set_cookie)!=res.end()){
 		std::string cookie= res[http::field::set_cookie].to_string();
 		std::smatch result;
 		if(std::regex_match(cookie,result,std::regex(".*(JSESSIONID=[0-9a-fA-F]+).*"))){
 			std::clog << "Got token " << result[1] << std::endl;
 			return result[1];
 		}
+		// Write the message to standard out
+		std::cerr << "Failed to get token. response was:" << std::endl << res << std::endl;
 	} 
-	// Write the message to standard out
-	std::cerr << "Failed to get token. response was:" << std::endl << res << std::endl;
 	return "";
 }
 
@@ -189,7 +191,8 @@ std::string Session::get_string(std::string target,http::verb method)
 	if(res.result_int()<300){
 		return boost::beast::buffers_to_string(res.body().data());
 	} else if(res.result()==boost::beast::http::status::not_found){
-		std::cerr << target << " was not found";
+		std::cerr << target << " was not found" << std::endl;
+		std::cerr << res << std::endl;
 	} else {
 		std::cerr 
 			<< "result for request on " << target << " was not \"OK\", but:" << std::endl 
@@ -199,7 +202,7 @@ std::string Session::get_string(std::string target,http::verb method)
 }
 bool Session::put_string(std::string target, std::string value, std::string content_type)
 {
-	const auto res=put_request(target,value,content_type);
+	const auto res=request(target,value,content_type,http::verb::put);
 	switch(res.result())
 	{
 		case boost::beast::http::status::ok:
@@ -216,6 +219,33 @@ bool Session::put_string(std::string target, std::string value, std::string cont
 			break;
 	}
 	return false;
+}
+
+std::string Session::uri_encode(std::string target){
+	std::string new_str = "";
+	char c;
+	int ic;
+	const char* chars = target.c_str();
+	char bufHex[10];
+	int len = strlen(chars);
+
+	for(int i=0;i<len;i++){
+		c = chars[i];
+		ic = c;
+		/*if (c==' ') new_str += '+';   
+		else */if (isalnum(c) || 
+			c == '/' || c == '-' || c == '_' || c == '.' || 
+			c == '~' || c == '?' || c == '&' || c == '=') new_str += c;
+		else {
+			sprintf(bufHex,"%X",c);
+			if(ic < 16) 
+				new_str += "%0"; 
+			else
+				new_str += "%";
+			new_str += bufHex;
+		}
+	}
+	return new_str;
 }
 
 boost::asio::io_service ConnectionBase::ios;
